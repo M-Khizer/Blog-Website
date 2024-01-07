@@ -1,16 +1,15 @@
 const express = require('express')
 
-const { getUser, userSignup, userLogIn } = require('../controller/user')
-const { checkToken } = require('../middleware/user')
-
-
+const { getUser, userSignup, userLogIn, userLogOut } = require('../controller/user')
 
 const router = express.Router()
 
+router.post('/signup',userSignup)
+
+router.post('/login',userLogIn)
+
+router.post('/logout',userLogOut)
+
 router.get('/',getUser)
-
-router.post('/signup',checkToken,userSignup)
-
-router.post('/login',userLogIn,checkToken)
 
 module.exports = router;

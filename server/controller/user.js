@@ -3,19 +3,19 @@ const app = express()
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const User = require('../model/user')
+// const cookieParser = require('cookie-parser');
+// app.use(cookieParser());
 
-
-const getUser = (req,res)=>{
-    res.json({success:true})
-}
 
 const generateToken = (user)=>{
     return jwt.sign({userID:user._id},process.env.SECRET_KEY,{expiresIn:'1h'})
 }
 
 const userSignup = async(req,res)=>{
+
     try{
-        const {username,password} = req.body
+
+        const {name,username,password} = req.body
 
         const existingUser = await User.findOne({username});
 
@@ -28,24 +28,36 @@ const userSignup = async(req,res)=>{
 
         const hashedPassword = await bcrypt.hash(password,10);
         
-        const newUser = new User({username, password:hashedPassword})
+        const newUser = new User({name,username, password:hashedPassword})
         await newUser.save();
     
         const token = generateToken(newUser)
 
-        res.cookie('token',token,{httpOnly:true, secure:true, sameSite:'strict'})
-
-        res.json({
-            success:true,
-            message:'User registered successfully',
-            newUser,
-            token
-        })
+        try {
         
+            const decoded = jwt.verify(token, process.env.SECRET_KEY); // Replace with your actual secret key
+
+            res.cookie('token', token, { httpOnly: true, secure: false, sameSite: 'Lax' });
+
+            res.status(200).json({
+                success: true,
+                message: 'User registered successfully',
+                newUser,
+                token,
+                decoded
+            });
+        } catch (decodeError) {
+            // Handle the case where decoding fails
+            console.error(decodeError);
+            res.status(400).json({
+                success: false,
+                message: 'Token decoding failed',
+            });
+        }
     }
     catch(err){
         console.log(err)
-        res.status(500).json({
+        res.status(400).json({
             message:'Error registering user',
             success:false
         })
@@ -78,15 +90,30 @@ const userSignup = async(req,res)=>{
                 })
             }
     
-            const token = generateToken(user);
+            const token = generateToken(user);            
+            
+           try{
+                
+                const decoded = jwt.verify(token, process.env.SECRET_KEY); // Replace with your actual secret key
+    
+                res.cookie('token', token, { httpOnly: false, sameSite: 'Lax' });
 
-            res.cookie('token',token,{httpOnly:true,sameSite:'strict'})
-
-            res.status(200).json({
-                success:true,
-                message:"Login successfull",
-                token
-            })
+                res.status(200).json({
+                    success:true,
+                    message:"Login successfull",
+                    token,
+                    decoded
+                })
+            }
+            catch(decodeError){
+                console.log(decodeError)
+                res.status(400).json({
+                    success:false,
+                    message:"Token decoding failed",
+                    
+                })
+            }
+            
         }
         catch(err){
             console.log(err)
@@ -97,5 +124,20 @@ const userSignup = async(req,res)=>{
         }
     } 
 
-module.exports ={getUser,userSignup,userLogIn}
+    const userLogOut = (req,res)=>{
+        res.clearCookie('token',{httpOnly:false, sameSite:false,secure:false})
+        res.status(200).json({
+            success:true,
+            message:"User logged out"
+        })
+    }
+
+    const getUser = (req,res)=>{
+        const cookieToken = req.cookies.token;
+        console.log(cookieToken)
+        res.json({success:true,cookieToken})
+    }
+    
+
+module.exports ={getUser,userSignup,userLogIn,userLogOut}
 
